@@ -106,7 +106,11 @@ def display(values):
                   for c in cols)
     if r in 'CF': print line
   print
-  
+
+def gridValuesToString(values):
+  "Convert a grid disctionary into a string"
+  return ''.join(values[r+c] if values[r+c] != 0 else '.'
+                 for r in rows for c in cols)
 #    
 # Search
 #
@@ -137,8 +141,8 @@ def some(seq):
   return False
 
 
-def solve_all(grids, name='', showif=0.0):
-  def time_solve(grid):
+def solve_all(grids, name='', showif=0.0, writeFile=None):
+  def time_solve(grid, f):
     start = time.clock()
     perfMetric = defaultdict(lambda: 0)
     values = solve(grid, perfMetric)
@@ -146,11 +150,15 @@ def solve_all(grids, name='', showif=0.0):
     ## Display puzzles that take long enough
     if showif is not None and t > showif:
       display(grid_values(grid))
+      if f: f.write(grid + '\n')
       if values: display(values)
       print "Performance Metric: ", perfMetric
       print '(%.2f seconds)\n' % t
     return (t, solved(values), perfMetric)
-  l = [time_solve(grid) for grid in grids]
+  f = None
+  if writeFile: f = open(writeFile, 'w+')
+  l = [time_solve(grid, f) for grid in grids]
+  if f: f.close()
   #print l
   times, results, perf = zip(*l)
   N = len(grids)
@@ -179,7 +187,7 @@ def random_puzzle(N=17):
     if len(ds) >= N and len(set(ds)) >= 8:
       return ''.join([values[s] if len(values[s]) == 1 else '.'
                       for s in squares])
-  return random_puzzle(N) ## Give up nand make a new puzzle
+  return random_puzzle(N) ## Give up and make a new puzzle
 
 def shuffled(seq):
   "Return a randomly shuffled copy of the input sequence"
