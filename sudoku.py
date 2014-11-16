@@ -1,7 +1,12 @@
 from collections import *
 import time
 import random
+from logicStrategies.py import *
+from heuristics import *
 
+HEURISTICS_ENABLED = 1
+LOGIC_STRATEGIES = 1
+ex = [1]
 #
 # Game definition
 #
@@ -15,10 +20,11 @@ rows = "ABCDEFGHI"
 
 cols = digits
 squares = cross(rows, cols)
-unitlist = ([cross(rows, c) for c in cols] +
-            [cross(r, cols) for r in rows] +
-            [cross(rs, cs) for rs in ('ABC', 'DEF', 'GHI')
-             for cs in ('123', '456', '789')])
+colUnits = [cross(rows, c) for c in cols]
+rowUnits = [cross(r, cols) for r in rows]
+boxUnits = [cross(rs, cs) for rs in ('ABC', 'DEF', 'GHI')
+            for cs in ('123', '456', '789')]
+unitlist = colUnits + rowUnits + boxUnits
 units = dict((s, [u for u in unitlist if s in u]) for s in squares)
 peers = dict((s, set(sum(units[s],[]))-set([s])) for s in squares)
 
@@ -75,15 +81,25 @@ def eliminate(values, s, d):
   for u in units[s]:
     if not CPRule2(values, u, d):
       return False
+  if LOGIC_STATEGIES:
+    if not eliminateByLogicStrategies(values, s, d):
+      return False
   return values
 
-## CP rule 1: if a square is reduced to only one value, then elimate that
+## CP rule 1: if a square is reduced to only one value, then eliminate that
 ## value from peers of that square
 def CPRule1(values, s):
   if len(values[s]) == 1:
     d2 = values[s]
+    if ex[0] == 1: #example
+      print "before CP1", s, values[s]
+      display(values)
     if not all(eliminate(values, s2, d2) for s2 in peers[s]):
       return False
+    if ex[0] == 1: #example
+      print "after CP1"
+      display(values)
+      ex[0] = 2
   return values  
 
 ## CP rule 2: if a unit has only one place left for a value, then put it there
@@ -92,8 +108,16 @@ def CPRule2(values, unit, d):
   if len(dplaces) == 0:
     return False ## Contradiction: removed last value
   elif len(dplaces) == 1:
+    if ex[0] == 2 and len(values[dplaces[0]]) > 1: #example
+      print "before CP2 ", dplaces[0], d
+      display(values)
+      ex[0] = 3
     if not assign(values, dplaces[0], d):
       return False
+    if ex[0] == 3: #example
+      print "after CP2 "
+      display(values)
+      ex[0] = 4
   return values  
 
 # Grid Display
@@ -103,6 +127,16 @@ def display(values):
   line = "+".join(['-' *(width*3)]*3)
   for r in rows:
     print ''.join(values[r+c].center(width) + ('|' if c in '36' else '')
+                  for c in cols)
+    if r in 'CF': print line
+  print
+
+def display2(values):
+  "Display these values as a grid"
+  width = 1 + max(1 for s in squares)
+  line = "+".join(['-' *(width*3)]*3)
+  for r in rows:
+    print ''.join((values[r+c] + ' ' if len(values[r+c]) == 1 else '. ') + ('|' if c in '36' else '')
                   for c in cols)
     if r in 'CF': print line
   print
@@ -119,11 +153,15 @@ def solve(grid, perfMetric): return search(parse_grid(grid), perfMetric)
 
 def search(values, perfMetric):
   "Alternate between DFS and Constraint Propagation"
+
+  if HEURISTICS_ENABLED:
+    return heuristicSearch(values, perfMetric)
+
   if values is False:
     return False ## Failed earlier
   if all(len(values[s]) == 1 for s in squares):
     return values ## Solved!
-  
+
   ## DFS: choose unfilled square s with fewest possibilities
   n, s = min((len(values[s]), s) for s in squares if len(values[s]) > 1)
 
@@ -165,6 +203,9 @@ def solve_all(grids, name='', showif=0.0, writeFile=None):
   if N > 1:
     print "Solved %d of %d %s puzzles (avg %.2f secs (%d Hz), max %.2f secs)"%(
       sum(results), N, name, sum(times)/N, N/sum(times), max(times))
+    print "Total exploration: %d squares, %d options" \
+        % (sum([d['squares'] for d in perf]), sum([d['options'] for d in perf]))
+  return times, perf
 
 def solved(values):
   "A puzzle is solved if each unit is a permutation of the digits 1 to 9"
@@ -198,6 +239,4 @@ def shuffled(seq):
 grid1  = '003020600900305001001806400008102900700000008006708200002609500800203009005010300'
 grid2  = '4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......'
 hard1  = '.....6....59.....82....8....45........3........6..3.54...325..6..................'    
-
-
 
