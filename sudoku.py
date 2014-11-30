@@ -1,9 +1,8 @@
 from collections import *
 import time
 import random
-from logicStrategies.py import *
-from heuristics import *
 
+ML_DATA_SEARCH_ENABLED = 0
 HEURISTICS_ENABLED = 1
 LOGIC_STRATEGIES = 1
 ex = [1]
@@ -28,7 +27,18 @@ unitlist = colUnits + rowUnits + boxUnits
 units = dict((s, [u for u in unitlist if s in u]) for s in squares)
 peers = dict((s, set(sum(units[s],[]))-set([s])) for s in squares)
 
-            
+def unitToName(u):
+  if u in rowUnits: return u[0][0]
+  elif u in colUnits: return u[0][1]
+  else: return u[0]
+unitName = {tuple(u): unitToName(u) for u in unitlist}
+
+def unitToType(u):
+  if u in rowUnits: return "Row"
+  elif u in colUnits: return "Col"
+  else: return "Box"
+unitType = {tuple(u):unitToType(u) for u in unitlist}
+
 def test():
     "A set of unit tests."
     assert len(squares) == 81
@@ -70,6 +80,12 @@ def assign(values, s, d):
   else:
     return False
 
+#from logicStrategies import *
+import logicStrategies as ls
+from heuristics import *
+from mlFeatures import *
+
+
 def eliminate(values, s, d):
   if d not in values[s]:
     return values ## Already gone
@@ -81,8 +97,8 @@ def eliminate(values, s, d):
   for u in units[s]:
     if not CPRule2(values, u, d):
       return False
-  if LOGIC_STATEGIES:
-    if not eliminateByLogicStrategies(values, s, d):
+  if LOGIC_STRATEGIES:
+    if not ls.eliminateByLogicStrategies(values, s, d):
       return False
   return values
 
@@ -149,13 +165,16 @@ def gridValuesToString(values):
 # Search
 #
 
-def solve(grid, perfMetric): return search(parse_grid(grid), perfMetric)
+def solve(grid, perfMetric, df): return search(parse_grid(grid), perfMetric, df)
 
-def search(values, perfMetric):
+def search(values, perfMetric, dataFile=None):
   "Alternate between DFS and Constraint Propagation"
 
   if HEURISTICS_ENABLED:
     return heuristicSearch(values, perfMetric)
+  elif ML_DATA_SEARCH_ENABLED:
+    assert(dataFile)
+    return mlDataSearch(values, perfMetric, dataFile)
 
   if values is False:
     return False ## Failed earlier
@@ -180,10 +199,13 @@ def some(seq):
 
 
 def solve_all(grids, name='', showif=0.0, writeFile=None):
+  df = None
+  if ML_DATA_SEARCH_ENABLED:
+    df = open('sudoku.ml.data', 'w+')
   def time_solve(grid, f):
     start = time.clock()
     perfMetric = defaultdict(lambda: 0)
-    values = solve(grid, perfMetric)
+    values = solve(grid, perfMetric, df)
     t = time.clock() - start
     ## Display puzzles that take long enough
     if showif is not None and t > showif:
@@ -240,3 +262,6 @@ grid1  = '0030206009003050010018064000081029007000000080067082000026095008002030
 grid2  = '4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......'
 hard1  = '.....6....59.....82....8....45........3........6..3.54...325..6..................'    
 
+if __name__ == '__main__':
+  gs = from_file('rh.txt')
+  solve_all(gs, showif=0.05)
