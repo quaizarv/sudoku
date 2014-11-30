@@ -3,7 +3,6 @@ import time
 import random
 from sudoku import *
 from logicStrategies import *
-#import logicStrategies as ls
 from heuristics import *
 from mlFeatures import *
 
