@@ -8,7 +8,7 @@ Sudoku Solver using CSP with backtracking can be run as follows:
 
 Example:
 
-  python sudoku.py data/randomHard.txt
+  python sudoku.py ../data/randomHard.txt
 
 
 - To run the fastest version (which includes all the generalized AC3 
@@ -18,7 +18,7 @@ Example:
 
 Example:
 
-  python sudoku.py data/randomHard.txt -f
+  python sudoku.py ../data/randomHard.txt -f
 
 
 - To turn on generalize AC3 strategies and heuristics selectively
@@ -46,13 +46,13 @@ Example:
 
     # Turn on Generalize Twins & Subregion-Exclusion AC3 Strategies along with
     # Most Constrained Var and Random Value (Digit) Selection
-    python sudoku.py data/randomHard.txt -o TS:SE:MCV:RO
+    python sudoku.py ../data/randomHard.txt -o TS:SE:MCV:RO
 
     # Turn on just Subregion-Exclusion Strategy
-    python sudoku.py data/randomHard.txt -o SE
+    python sudoku.py ../data/randomHard.txt -o SE
 
     # Turn on Subregion-Exclusion Strategy with Most Constrained Var heuristic
-    python sudoku.py data/randomHard.txt -o SE:MCV
+    python sudoku.py ../data/randomHard.txt -o SE:MCV
 
 - Data: submitted data directory has various example puzzles. "randomHard.txt"
         contains the 1683 hardest puzzles from a million randomly generated
