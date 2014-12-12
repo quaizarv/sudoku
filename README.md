@@ -36,6 +36,9 @@ Example:
   ML:   turn on Machine Learning based Move Selection (Note that you should
         have collected data by running "python sudoku.py -o MLDC) beforehand
 
+  Note: Options RO & LCV are mutually exclusive. Same goes for MLDC & ML.
+        The strategies are explained in the project report in more detail.
+
   Example:
 
     # Turn on Generalize Twins & Subregion-Exclusion AC3 Strategies along with
@@ -48,7 +51,9 @@ Example:
     # Turn on Subregion-Exclusion Strategy with Most Constrained Var heuristic
     python sudoku.py data/randomHard.txt -o SE:MCV
 
-    
+- Data: submitted data directory has various example puzzles. "randomHard.txt"
+        contains the 1683 hardest puzzles from a million randomly generated
+        puzzles.
 
     
   
