@@ -138,13 +138,15 @@ def chainStrategy(values, u, s):
 
 def eliminateByLogicStrategies(values, s, d):
   for u in units[s]:
-    if not CPSubregionExclusion(values, u, d):
-      return False
-    if not twinsStrategy(values, u, s):
-      return False
-    for s2 in u:
-      if d in values[s2]:
-        if not twinsStrategy(values, u, s2):
-          return False
-        break
+    if knobs['SUBREGION_EXCL_ON']:
+      if not CPSubregionExclusion(values, u, d):
+        return False
+    if knobs['TWINS_ON']:
+      if not twinsStrategy(values, u, s):
+        return False
+      for s2 in u:
+        if d in values[s2]:
+          if not twinsStrategy(values, u, s2):
+            return False
+          break
   return values  

@@ -1,11 +1,20 @@
+import sys
 from collections import *
 import time
 import random
 
-ML_DATA_SEARCH_ENABLED = 0
-HEURISTICS_ENABLED = 1
-LOGIC_STRATEGIES = 1
-ex = [1]
+knobs = {'HEURISTICS_ENABLED':0,
+         'LOGIC_STRATEGIES':0,
+         'MOST_CONSTRAINED_VAR':0,
+         'RANDOM_VAR':1,
+         'RANDOM_OPTIONS_ENABLED':0,
+         'LCV_ENABLED':0,
+         'SUBREGION_EXCL_ON':0,
+         'TWINS_ON':0,
+         'ML_ENABLED':0,
+         'ML_DATA_SEARCH_ENABLED':0}
+
+ex = [0]
 #
 # Game definition
 #
@@ -97,7 +106,7 @@ def eliminate(values, s, d):
   for u in units[s]:
     if not CPRule2(values, u, d):
       return False
-  if LOGIC_STRATEGIES:
+  if knobs['LOGIC_STRATEGIES']:
     if not ls.eliminateByLogicStrategies(values, s, d):
       return False
   return values
@@ -113,9 +122,9 @@ def CPRule1(values, s):
     if not all(eliminate(values, s2, d2) for s2 in peers[s]):
       return False
     if ex[0] == 1: #example
-      print "after CP1"
+      """print "after CP1"
       display(values)
-      ex[0] = 2
+      ex[0] = 2"""
   return values  
 
 ## CP rule 2: if a unit has only one place left for a value, then put it there
@@ -165,16 +174,17 @@ def gridValuesToString(values):
 # Search
 #
 
-def solve(grid, perfMetric, df): return search(parse_grid(grid), perfMetric, df)
+def solve(grid, perfMetric, df): 
+  return search(parse_grid(grid), perfMetric, df)
 
 def search(values, perfMetric, dataFile=None):
   "Alternate between DFS and Constraint Propagation"
 
-  if HEURISTICS_ENABLED:
+  if knobs['HEURISTICS_ENABLED']:
     return heuristicSearch(values, perfMetric)
-  elif ML_DATA_SEARCH_ENABLED:
+  elif knobs['ML_DATA_SEARCH_ENABLED']:
     assert(dataFile)
-    return mlDataSearch(values, perfMetric, dataFile)
+    return mlDataSearch(values, perfMetric, dataFile, 0)
 
   if values is False:
     return False ## Failed earlier
@@ -197,15 +207,24 @@ def some(seq):
     if e: return e
   return False
 
-
 def solve_all(grids, name='', showif=0.0, writeFile=None):
+  t = time.time()
   df = None
-  if ML_DATA_SEARCH_ENABLED:
+  if knobs['ML_DATA_SEARCH_ENABLED']:
     df = open('sudoku.ml.data', 'w+')
+  puzzleNum = [0]
   def time_solve(grid, f):
     start = time.clock()
     perfMetric = defaultdict(lambda: 0)
     values = solve(grid, perfMetric, df)
+
+    """if not knobs['MOST_CONSTRAINED_VAR'] and not values:
+      knobs['RANDOM_VAR'] = 0
+      knobs['MOST_CONSTRAINED_VAR'] = 1
+      values = solve(grid, perfMetric, df)
+      knobs['RANDOM_VAR'] = 1
+      knobs['MOST_CONSTRAINED_VAR'] = 0"""
+
     t = time.clock() - start
     ## Display puzzles that take long enough
     if showif is not None and t > showif:
@@ -214,12 +233,14 @@ def solve_all(grids, name='', showif=0.0, writeFile=None):
       if values: display(values)
       print "Performance Metric: ", perfMetric
       print '(%.2f seconds)\n' % t
+    puzzleNum[0] += 1
+    print 'Finished Puzzle #', puzzleNum[0]
     return (t, solved(values), perfMetric)
   f = None
   if writeFile: f = open(writeFile, 'w+')
   l = [time_solve(grid, f) for grid in grids]
   if f: f.close()
-  #print l
+  if df: df.close()
   times, results, perf = zip(*l)
   N = len(grids)
   if N > 1:
@@ -227,6 +248,7 @@ def solve_all(grids, name='', showif=0.0, writeFile=None):
       sum(results), N, name, sum(times)/N, N/sum(times), max(times))
     print "Total exploration: %d squares, %d options" \
         % (sum([d['squares'] for d in perf]), sum([d['options'] for d in perf]))
+    print "total time: ", time.time() - t
   return times, perf
 
 def solved(values):
@@ -262,6 +284,138 @@ grid1  = '0030206009003050010018064000081029007000000080067082000026095008002030
 grid2  = '4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......'
 hard1  = '.....6....59.....82....8....45........3........6..3.54...325..6..................'    
 
+def writeResults(times, perf, fileName):
+  perf = [pm.items() for pm in perf]
+  stats = [(s, o, ('time', t)) for (s, o), t in zip(perf, times)]
+  f = open(fileName, 'w+')
+  for item in stats:
+    f.write(' '.join(k + ':' + str(v) for k,v in item) + '\n')
+  f.close()  
+
+def fastestSolver(fileName, showif):
+  knobs['MOST_CONSTRAINED_VAR'] = 1
+  knobs['RANDOM_VAR'] = 0
+  knobs['HEURISTICS_ENABLED'] = 1
+  knobs['LOGIC_STRATEGIES'] = 1
+  knobs['SUBREGION_EXCL_ON'] = 1
+  knobs['TWINS_ON'] = 1
+  knobs['RANDOM_OPTIONS_ENABLED'] = 1
+  gs = from_file(fileName)
+  solve_all(gs, showif=0.0)
+
+def baselineSolver(fileName, showif):
+  knobs['MOST_CONSTRAINED_VAR'] = 1
+  knobs['RANDOM_VAR'] = 0
+  gs = from_file(fileName)
+  solve_all(gs, showif)
+
+def parseArgsAndRun():
+  if len(sys.argv) < 2:
+    print "Missing Arguments"
+    print "Usage: python sudoku.py <filename> -f"
+    print "       python sudoku.py <filename>  -o SE:NT:MCV:LCV:MLDC:ML"
+
+  fileName = sys.argv[1]
+  if len(sys.argv) == 2:
+    print "baseline solver"
+    baselineSolver(fileName, showif=0.0)
+    return
+
+  if sys.argv[2] == '-f':
+    fastestSolver(fileName, showif=0.0)
+    return
+
+  if sys.argv[2] != '-o':
+    print "Usage: python sudoku.py <filename> -f"
+    print "       python sudoku.py <filename>  -o SE:GT:MCV:LCV:RO:MLDC:ML"
+    return
+
+  items = sys.argv[3].split(':')
+
+  if 'SE' in items:
+    knobs['HEURISTICS_ENABLED'] = 1
+    knobs['LOGIC_STRATEGIES'] = 1
+    knobs['SUBREGION_EXCL_ON'] = 1
+      
+  if 'GT' in items:
+    knobs['HEURISTICS_ENABLED'] = 1
+    knobs['LOGIC_STRATEGIES'] = 1
+    knobs['TWINS_ON'] = 1
+
+  if 'MCV' in items:
+    knobs['MOST_CONSTRAINED_VAR'] = 1
+    knobs['RANDOM_VAR'] = 0
+      
+  if 'LCV' in items:
+    if 'RO' in items:
+      print 'Options LCV and RO are not compatible'
+      return
+    knobs['LCV_ENABLED'] = 1
+    knobs['RANDOM_OPTIONS_ENABLED'] = 0
+
+  if 'RO' in items:
+    knobs['LCV_ENABLED'] = 0
+    knobs['RANDOM_OPTIONS_ENABLED'] = 1
+
+  if 'MLDC' in items:
+    if 'ML' in items:
+      print 'Options ML and MLDC are not compatible'
+      return
+    knobs['ML_DATA_SEARCH_ENABLED'] = 1
+
+  if 'ML' in items:
+    knobs['ML_ENABLED'] = 1
+
+  gs = from_file(fileName)
+  solve_all(gs, showif=0.0)
+
+  #gs = from_file('xx.txt')
+  """gs = from_file('data/randomHard.txt')
+  knobs['ML_DATA_SEARCH_ENABLED'] = 1
+  solve_all(gs, showif=0.00001)"""
+
+  """
+  times, perf = solve_all(gs, showif=0.2)
+  writeResults(times, perf, 'baseline.result')
+
+  # Enable HEURISTICS & LOGIC STRATEGIES
+  knobs['MOST_CONSTRAINED_VAR'] = 1
+  knobs['RANDOM_VAR'] = 0
+  knobs['HEURISTICS_ENABLED'] = 1
+  knobs['LOGIC_STRATEGIES'] = 1
+  knobs['SUBREGION_EXCL_ON'] = 1
+  times, perf = solve_all(gs, showif=0.2)
+  writeResults(times, perf, 'LS_SE.result')
+
+  knobs['TWINS_ON'] = 1
+  times, perf = solve_all(gs, showif=0.2)
+  writeResults(times, perf, 'LS_MCV.result')"""
+
+  """knobs['RANDOM_OPTIONS_ENABLED'] = 1
+  times, perf = solve_all(gs, showif=0.2)
+  writeResults(times, perf, 'LS_MCV_RO.result')
+
+  knobs['RANDOM_OPTIONS_ENABLED'] = 0
+  knobs['LCV_ENABLED'] = 1
+  times, perf = solve_all(gs, showif=0.2)
+  writeResults(times, perf, 'LS_MCV_LCV.result')
+
+  knobs['MOST_CONSTRAINED_VAR'] = 0
+  knobs['RANDOM_VAR'] = 1
+  knobs['RANDOM_OPTIONS_ENABLED'] = 1
+  times, perf = solve_all(gs, showif=0.2)
+  writeResults(times, perf, 'LS_NO_MCV.result')
+
+  knobs['MOST_CONSTRAINED_VAR'] = 0
+  knobs['RANDOM_VAR'] = 1
+  knobs['HEURISTICS_ENABLED'] = 1
+  knobs['LOGIC_STRATEGIES'] = 1
+  knobs['SUBREGION_EXCL_ON'] = 1
+  knobs['TWINS_ON'] = 1
+  knobs['RANDOM_OPTIONS_ENABLED'] = 1
+  times, perf = solve_all(gs, showif=0.2)
+  writeResults(times, perf, 'LS_NO_MCV.result')"""
+
+
 if __name__ == '__main__':
-  gs = from_file('rh.txt')
-  solve_all(gs, showif=0.05)
+  parseArgsAndRun()

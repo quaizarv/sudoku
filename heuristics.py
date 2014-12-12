@@ -1,8 +1,8 @@
 from sudoku import *
 import random
+import numpy as np
+from ml import *
 
-MOST_CONSTRAINED_VAR = 0
-RANDOM_VAR = 1
 
 def shuffledOptions(values, s):
   options = list(values[s])
@@ -14,7 +14,6 @@ def leastConstrainingValue(values, s):
                     for d in values[s]])
   options = zip(*options)[1]
   return options
-
 
 def searchDepthLimited(values):
   "Alternate between DFS and Constraint Propagation"
@@ -59,17 +58,40 @@ def heuristicSearch(values, perfMetric):
   if all(len(values[s]) == 1 for s in squares):
     return values ## Solved!
 
+  """if not knobs['MOST_CONSTRAINED_VAR'] and perfMetric['options'] > 50:
+    return False"""
+
   ## DFS: choose unfilled square s with fewest possibilities
-  if MOST_CONSTRAINED_VAR:
+  if knobs['MOST_CONSTRAINED_VAR']:
     n, s = min((len(values[s]), s) for s in squares if len(values[s]) > 1)
-  elif RANDOM_VAR:
-    sChoices = [s for s in squares if len(values[s]) > 1]
-    s = sChoices[random.randint(0,len(sChoices)-1)]
+  elif knobs['RANDOM_VAR']:
+    s = random.sample([s for s in squares if len(values[s]) > 1], 1)[0]
+    #s = sChoices[random.randint(0,len(sChoices)-1)]
+  elif knobs['ML_ENABLED']:
+    pass
   else:
     s = bestMove(values)
 
-  #options = leastConstrainingValue(values, s)
-  options = shuffledOptions(values, s)
+  """emptyUnitSqs = countEmptyUnitSqs(values)
+  unitOpts = countUnitOptions(values)
+  optionUnitFreq = computeOptUnitFreq(values)
+  def mlPredict(s, d):
+    f = vectorize(extractFeatures(values, s, d, emptyUnitSqs,
+                                  unitOpts, optionUnitFreq), fKeys)
+    return clf.predict(f)
+
+  options = zip(*sorted([(mlPredict(s, d), d) for d in list(values[s])]))[1]"""
+
+  if knobs['ML_ENABLED']:
+    s, options = optionsSortedbyML(values)    
+    #options = optionsSortedbyML(values, s)
+  elif knobs['LCV_ENABLED']:
+    options = leastConstrainingValue(values, s)
+  elif knobs['RANDOM_OPTIONS_ENABLED']:
+    options = shuffledOptions(values, s)
+  else:
+    options = values[s]
+
   perfMetric['squares'] += 1
   for d in options:
     perfMetric['options'] += 1
