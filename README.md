@@ -38,6 +38,9 @@ Example:
 
   Note: Options RO & LCV are mutually exclusive. Same goes for MLDC & ML.
         The strategies are explained in the project report in more detail.
+        For MLDC (machine learning Data Collection), recommend using
+        'randomHard.txt' file in the data folder as it has lot of hard
+        puzzles. 
 
   Example:
 

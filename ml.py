@@ -3,6 +3,7 @@ import collections
 import random
 from sudoku import *
 from sklearn import linear_model
+from sklearn import svm
 from heuristics import *
 
 def squareToBox(s):
@@ -107,7 +108,7 @@ def readData(fileName):
     if items[0] == 'Board-ID':
       gridId += 1
       grids[gridId] = []
-      treeDepth = int(items[2].split[':'][1])
+      treeDepth = int(items[2].split(':')[1])
       continue
     else:
       if len(items) < 3: continue
@@ -116,7 +117,7 @@ def readData(fileName):
       solved = int(items[2])
       feats = re.split('[:,]', featStr)
       fKeyVal = collections.defaultdict(lambda: 0)
-      fKeyval['treeDepth='] = treeDepth
+      fKeyVal['treeDepth='] = treeDepth
       for k, v in zip(feats[::2], feats[1:][::2]):
         fKeyVal[k] = int(v) 
       grids[gridId].append((fKeyVal, optExplored, solved))
@@ -149,11 +150,16 @@ def lrData(grids, featureKeys):
       Y.append(cost1)
   return X, Y
 
-clf = linear_model.LinearRegression()
+clf = None
 if knobs['ML_ENABLED']:
   g, fKeys = readData('sudoku.ml.data')
+  clf = linear_model.LinearRegression()
   X, Y = lrData(g,fKeys)
   clf.fit(X, Y)
+  """if knobs['ML_SVM']:
+    clf = svm.SVC(kernel='linear', C=.1)
+    X, Y = pairwiseData(g,fKeys)
+    clf.fit(X, Y)"""
 
 def optionsSortedbyML(values):
   emptyUnitSqs = countEmptyUnitSqs(values)
